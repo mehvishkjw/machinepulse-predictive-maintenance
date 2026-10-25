@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MachinePulse · Predictive Maintenance</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f1e7; --paper:#fffdf8; --ink:#1d2433; --muted:#6b7282; --line:#e4dccb;
+  --teal:#0fa3a3; --coral:#ff6b4a; --amber:#f5a623; --violet:#6c5ce7; --lime:#35b56a; --sky:#2d8cf0; --rose:#e84393;
+  --ok:#35b56a; --warn:#f5a623; --crit:#ff4d4f;
+  --shadow:0 1px 0 rgba(29,36,51,.04),0 8px 24px -12px rgba(29,36,51,.18);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:'Space Grotesk',system-ui,sans-serif;font-size:15px;line-height:1.5;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-attachment:fixed}
+.mono{font-family:'IBM Plex Mono',monospace}
+button{font-family:inherit;cursor:pointer}
+
+/* ---- rail ---- */
+.rail{position:fixed;left:0;top:0;bottom:0;width:76px;background:var(--ink);display:flex;flex-direction:column;align-items:center;padding:18px 0;gap:6px;z-index:50}
+.logo{width:44px;height:44px;border-radius:12px;background:conic-gradient(from 200deg,var(--coral),var(--amber),var(--lime),var(--teal),var(--violet),var(--coral));display:grid;place-items:center;margin-bottom:18px}
+.logo span{width:30px;height:30px;border-radius:9px;background:var(--ink);display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px}
+.rail a{width:56px;padding:9px 0;border-radius:10px;color:#9aa3b5;text-decoration:none;font-size:10px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px;transition:.2s}
+.rail a i{font-style:normal;font-size:18px}
+.rail a:hover,.rail a.on{background:#2c3548;color:#fff}
+.main{margin-left:76px;padding:26px 32px 80px;max-width:1500px}
+
+/* ---- header ---- */
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap;margin-bottom:22px}
+.eyebrow{font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--coral);font-weight:600}
+h1{font-size:34px;line-height:1.1;letter-spacing:-.02em;margin-top:4px}
+h1 em{font-style:normal;background:linear-gradient(90deg,var(--teal),var(--violet));-webkit-background-clip:text;color:transparent}
+.sub{color:var(--muted);max-width:640px;margin-top:6px}
+.clock{display:flex;gap:10px;align-items:center;background:var(--paper);border:1px solid var(--line);padding:10px 14px;border-radius:12px;box-shadow:var(--shadow)}
+.pulse{width:10px;height:10px;border-radius:50%;background:var(--lime);box-shadow:0 0 0 0 rgba(53,181,106,.6);animation:pl 1.6s infinite}
+@keyframes pl{70%{box-shadow:0 0 0 10px rgba(53,181,106,0)}100%{box-shadow:0 0 0 0 rgba(53,181,106,0)}}
+
+/* ---- story strip ---- */
+.story{display:grid;grid-template-columns:repeat(4,1fr);gap:0;background:var(--paper);border:1px solid var(--line);border-radius:16px;overflow:hidden;margin-bottom:22px;box-shadow:var(--shadow)}
+.step{padding:14px 18px;border-right:1px dashed var(--line);position:relative}
+.step:last-child{border:none}
+.step b{display:block;font-size:13px}
+.step small{color:var(--muted);font-size:12px}
+.step .n{position:absolute;right:14px;top:12px;font-family:'IBM Plex Mono';font-size:22px;font-weight:600;opacity:.15}
+.step::before{content:"";position:absolute;left:0;top:0;height:4px;width:100%}
+.step:nth-child(1)::before{background:var(--sky)}.step:nth-child(2)::before{background:var(--violet)}.step:nth-child(3)::before{background:var(--amber)}.step:nth-child(4)::before{background:var(--lime)}
+
+/* ---- kpis ---- */
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px}
+.kpi{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.kpi .l{font-size:12px;color:var(--muted)}
+.kpi .v{font-size:28px;font-weight:700;letter-spacing:-.02em;font-family:'IBM Plex Mono'}
+.kpi .d{font-size:12px;font-weight:600}
+.kpi .bar{position:absolute;left:0;bottom:0;height:4px;transition:width 1s}
+.gauge{position:absolute;right:12px;top:12px}
+
+/* ---- cards ---- */
+.grid{display:grid;gap:18px}
+.g2{grid-template-columns:1.25fr 1fr}
+.g3{grid-template-columns:1fr 1fr}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:18px 20px;box-shadow:var(--shadow);min-width:0}
+.ch{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.ch h2{font-size:17px;letter-spacing:-.01em}
+.ch p{font-size:12.5px;color:var(--muted);max-width:460px}
+.tag{font-family:'IBM Plex Mono';font-size:10px;padding:3px 8px;border-radius:20px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+section{scroll-margin-top:20px;margin-bottom:18px}
+.seg{display:inline-flex;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px}
+.seg button{border:none;background:none;padding:5px 10px;border-radius:7px;font-size:12px;color:var(--muted);font-weight:500}
+.seg button.on{background:var(--ink);color:#fff}
+.btn{border:1px solid var(--ink);background:var(--ink);color:#fff;padding:7px 13px;border-radius:9px;font-size:12.5px;font-weight:600;transition:.15s}
+.btn:hover{transform:translateY(-1px)}
+.btn.ghost{background:transparent;color:var(--ink)}
+.btn.coral{background:var(--coral);border-color:var(--coral)}
+.btn.teal{background:var(--teal);border-color:var(--teal)}
+
+/* floor */
+#floor{width:100%;height:auto;display:block}
+.mach{cursor:pointer;transition:transform .2s}
+.mach:hover{filter:brightness(1.05)}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--c)}
+
+/* detail */
+.mhead{display:flex;gap:14px;align-items:center;margin-bottom:12px}
+.mbadge{width:54px;height:54px;border-radius:14px;display:grid;place-items:center;font-size:24px;color:#fff;flex:none}
+.mhead h3{font-size:19px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:3px}
+.chip{font-size:11px;background:var(--bg);border:1px solid var(--line);padding:2px 8px;border-radius:20px;font-family:'IBM Plex Mono'}
+.sensors{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sens{border:1px solid var(--line);border-radius:12px;padding:8px 10px 4px;background:#fff}
+.sens .t{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted)}
+.sens .t b{font-family:'IBM Plex Mono';color:var(--ink);font-size:13px}
+.sens svg{width:100%;height:58px;display:block}
+.alert{margin-top:12px;border-radius:12px;padding:10px 12px;font-size:13px;display:flex;gap:10px;align-items:flex-start;transition:.3s}
+
+/* rul */
+.chartbox{position:relative}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:#fff;font-size:12px;padding:7px 10px;border-radius:8px;white-space:nowrap;opacity:0;transition:opacity .12s;z-index:5;font-family:'IBM Plex Mono'}
+input[type=range]{-webkit-appearance:none;width:100%;height:6px;border-radius:6px;background:linear-gradient(90deg,var(--teal),var(--amber),var(--coral));outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#fff;border:3px solid var(--ink);cursor:grab}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid var(--ink)}
+.ctrl{display:flex;flex-direction:column;gap:4px;font-size:12.5px}
+.ctrl label{display:flex;justify-content:space-between;color:var(--muted)}
+.ctrl label b{color:var(--ink);font-family:'IBM Plex Mono'}
+.verdict{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.vbox{border-radius:12px;padding:10px 12px;background:var(--bg)}
+.vbox .l{font-size:11px;color:var(--muted)}
+.vbox .v{font-family:'IBM Plex Mono';font-size:18px;font-weight:600}
+
+/* gantt */
+#gantt{width:100%;display:block;user-select:none}
+.blk{cursor:grab}
+.blk:active{cursor:grabbing}
+
+/* heat */
+.heatwrap{display:grid;grid-template-columns:1fr 220px;gap:16px}
+#heat{width:100%;display:block}
+.modes{display:flex;flex-direction:column;gap:8px}
+.mode{display:flex;align-items:center;gap:8px;font-size:13px;border:1px solid var(--line);padding:8px 10px;border-radius:10px;cursor:pointer;background:#fff;transition:.15s}
+.mode.off{opacity:.4}
+.mode i{width:12px;height:12px;border-radius:4px;flex:none}
+.mode span{margin-left:auto;font-family:'IBM Plex Mono';font-size:12px;color:var(--muted)}
+.insight{background:linear-gradient(135deg,#eef9f8,#f3f0ff);border-radius:12px;padding:12px;font-size:12.5px;margin-top:10px}
+
+/* sim */
+.simgrid{display:grid;grid-template-columns:260px 1fr;gap:22px}
+#simbars{width:100%;display:block}
+
+/* queue */
+.queue{display:flex;flex-direction:column;gap:10px}
+.qi{display:grid;grid-template-columns:8px 1fr auto;gap:12px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fff;transition:.35s}
+.qi .p{width:8px;height:100%;border-radius:4px;min-height:40px}
+.qi h4{font-size:14px}
+.qi small{color:var(--muted);font-size:12px}
+.qi.done{opacity:.45;transform:scale(.98)}
+.qi.done .btn{background:var(--lime);border-color:var(--lime)}
+
+footer{margin-top:30px;color:var(--muted);font-size:12px;text-align:center}
+
+@media(max-width:1150px){.kpis{grid-template-columns:repeat(3,1fr)}.g2,.g3,.simgrid,.heatwrap{grid-template-columns:1fr}}
+@media(max-width:700px){.rail{display:none}.main{margin-left:0;padding:16px}.kpis{grid-template-columns:1fr 1fr}.story{grid-template-columns:1fr 1fr}.sensors{grid-template-columns:1fr}h1{font-size:26px}.verdict{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<nav class="rail">
+  <div class="logo"><span>MP</span></div>
+  <a href="#floor-sec" class="on"><i>▦</i>Floor</a>
+  <a href="#rul-sec"><i>⌁</i>Forecast</a>
+  <a href="#plan-sec"><i>▤</i>Planner</a>
+  <a href="#pattern-sec"><i>▩</i>Patterns</a>
+  <a href="#roi-sec"><i>◈</i>ROI</a>
+  <a href="#act-sec"><i>✓</i>Actions</a>
+</nav>
+
+<main class="main">
+  <header class="top">
+    <div>
+      <div class="eyebrow">Project 09 · Predictive Maintenance for Business Operations</div>
+      <h1>Fix machines <em>before</em> they break.</h1>
+      <p class="sub">MachinePulse reads sensor data, maintenance history and the production schedule, spots the failure patterns, and tells you what to service and when. Every chart below is interactive, so click anything.</p>
+    </div>
+    <div class="clock"><div class="pulse"></div><div><div class="mono" id="clk" style="font-weight:600">--:--:--</div><small style="color:var(--muted);font-size:11px">Plant A · live sensor feed (simulated)</small></div></div>
+  </header>
+
+  <div class="story">
+    <div class="step"><span class="n">01</span><b>📡 Sense</b><small>Vibration, heat, current &amp; pressure every second</small></div>
+    <div class="step"><span class="n">02</span><b>🧠 Learn</b><small>The model matches signals to 4 years of past failures</small></div>
+    <div class="step"><span class="n">03</span><b>⏳ Predict</b><small>Failure risk &amp; remaining useful life per machine</small></div>
+    <div class="step"><span class="n">04</span><b>🛠 Act</b><small>Book service into production gaps automatically</small></div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <section id="floor-sec" class="grid g2">
+    <div class="card">
+      <div class="ch">
+        <div><h2>Plant floor: live health map</h2><p>Each tile is a machine. Colour shows the AI health score. Click one to inspect its sensors →</p></div>
+        <div class="seg" id="floorMode"><button class="on" data-m="health">Health</button><button data-m="risk">30-day risk</button><button data-m="line">By line</button></div>
+      </div>
+      <svg id="floor" viewBox="0 0 640 400"></svg>
+      <div class="legend" style="margin-top:8px" id="floorLegend"></div>
+    </div>
+
+    <div class="card" id="detail">
+      <div class="mhead"><div class="mbadge" id="mBadge">⚙</div>
+        <div style="flex:1"><h3 id="mName">—</h3><div class="chips" id="mChips"></div></div>
+        <div style="text-align:right"><div class="mono" style="font-size:26px;font-weight:700" id="mScore">--</div><small style="color:var(--muted);font-size:11px">health / 100</small></div>
+      </div>
+      <div class="sensors" id="sensors"></div>
+      <div class="alert" id="mAlert"></div>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <button class="btn coral" id="injectBtn">⚡ Inject bearing fault</button>
+        <button class="btn ghost" id="resetBtn">↺ Reset machine</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="rul-sec" class="grid g3">
+    <div class="card">
+      <div class="ch"><div><h2>Degradation forecast: <span id="rulName"></span></h2><p>The line is predicted health over the next 60 days. The shaded band is model uncertainty. Hover to read values. Drag the slider to choose a service day.</p></div><span class="tag" style="background:#efeafe;color:var(--violet)">Remaining life model</span></div>
+      <div class="chartbox"><svg id="rul" viewBox="0 0 620 260" style="width:100%;display:block"></svg><div class="tip" id="rulTip"></div></div>
+      <div class="ctrl" style="margin-top:8px"><label>Schedule service on <b id="svcDayL">day 12</b></label><input type="range" id="svcDay" min="1" max="60" value="12"></div>
+      <div class="verdict" id="rulVerdict"></div>
+    </div>
+
+    <div class="card">
+      <div class="ch"><div><h2>Why the AI is worried</h2><p>The signals that push this machine's failure risk up. Longer bars contribute more to the prediction.</p></div></div>
+      <svg id="drivers" viewBox="0 0 520 230" style="width:100%;display:block"></svg>
+      <div class="ch" style="margin-top:12px;margin-bottom:4px"><div><h2 style="font-size:15px">Maintenance history</h2><p>Past events for this machine. ● repair, ◆ preventive, ✖ breakdown.</p></div></div>
+      <svg id="history" viewBox="0 0 520 70" style="width:100%;display:block"></svg>
+    </div>
+  </section>
+
+  <section id="plan-sec" class="card">
+    <div class="ch">
+      <div><h2>Maintenance planner vs production schedule</h2><p>Grey bars show production load per shift. Coloured blocks are recommended service jobs. <b>Drag a block</b> to move it, or let the AI fit every job into the quietest shifts.</p></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div class="mono" style="font-size:12px;background:var(--bg);padding:6px 10px;border-radius:8px">Lost output: <b id="lostOut">0</b> units</div>
+        <button class="btn ghost" id="shuffleBtn">Naive plan</button>
+        <button class="btn teal" id="optBtn">✨ AI-optimise</button>
+      </div>
+    </div>
+    <svg id="gantt" viewBox="0 0 1200 360"></svg>
+  </section>
+
+  <section id="pattern-sec" class="card">
+    <div class="ch"><div><h2>Failure patterns: when do machines break?</h2><p>847 historical failures by weekday and hour. Toggle the failure types on the right. Click a cell for detail.</p></div></div>
+    <div class="heatwrap">
+      <div class="chartbox"><svg id="heat" viewBox="0 0 760 300"></svg><div class="tip" id="heatTip"></div></div>
+      <div>
+        <div class="modes" id="modes"></div>
+        <div class="insight" id="heatInsight"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="roi-sec" class="card">
+    <div class="ch"><div><h2>Strategy simulator: reactive vs preventive vs predictive</h2><p>Move the sliders to match your plant. The bars show yearly maintenance cost split into downtime, labour and parts.</p></div>
+      <div class="seg" id="presets"><button data-p="small">Small shop</button><button class="on" data-p="mid">Mid plant</button><button data-p="big">Gigafactory</button></div></div>
+    <div class="simgrid">
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="ctrl"><label>Machines in fleet <b id="sFleetL"></b></label><input type="range" id="sFleet" min="10" max="400" value="60"></div>
+        <div class="ctrl"><label>Downtime cost / hour <b id="sDownL"></b></label><input type="range" id="sDown" min="500" max="50000" step="500" value="12000"></div>
+        <div class="ctrl"><label>Sensor coverage <b id="sCovL"></b></label><input type="range" id="sCov" min="20" max="100" value="80"></div>
+        <div class="ctrl"><label>Model accuracy <b id="sAccL"></b></label><input type="range" id="sAcc" min="50" max="98" value="88"></div>
+        <div class="insight" id="simVerdict" style="margin-top:0"></div>
+      </div>
+      <div class="chartbox"><svg id="simbars" viewBox="0 0 760 330"></svg><div class="tip" id="simTip"></div></div>
+    </div>
+  </section>
+
+  <section id="act-sec" class="card">
+    <div class="ch"><div><h2>Recommended actions</h2><p>Ranked by risk × business impact. Approve one to send a work order. The KPIs at the top update.</p></div><button class="btn" id="approveAll">Approve all critical</button></div>
+    <div class="queue" id="queue"></div>
+  </section>
+
+  <footer>MachinePulse · predictive maintenance demo · all data is simulated for illustration</footer>
+</main>
+
+<script>
+/* ===== helpers ===== */
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const NS='http://www.w3.org/2000/svg';
+function el(tag,attrs={},parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e}
+let seed=9;const rnd=()=>{seed=(seed*16807)%2147483647;return (seed-1)/2147483646};
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const money=v=>v>=1e6?'$'+(v/1e6).toFixed(2)+'M':v>=1e3?'$'+(v/1e3).toFixed(0)+'K':'$'+Math.round(v);
+const hcol=h=>h>=75?'#35b56a':h>=50?'#f5a623':'#ff4d4f';
+const C={teal:'#0fa3a3',coral:'#ff6b4a',amber:'#f5a623',violet:'#6c5ce7',lime:'#35b56a',sky:'#2d8cf0',rose:'#e84393',ink:'#1d2433',muted:'#6b7282',line:'#e4dccb'};
+
+setInterval(()=>$('#clk').textContent=new Date().toLocaleTimeString(),1000);
+
+/* ===== fleet ===== */
+const TYPES={CNC:{i:'⚙',c:C.sky},Press:{i:'⬇',c:C.violet},Robot:{i:'🦾',c:C.teal},Pump:{i:'💧',c:C.sky},Conveyor:{i:'⇉',c:C.amber},Compressor:{i:'🌀',c:C.rose},Furnace:{i:'🔥',c:C.coral}};
+const LINES=['Line A · Machining','Line B · Forming','Line C · Assembly'];
+const LC=[C.sky,C.violet,C.teal];
+const spec=[
+ ['CNC-101','CNC',0,92],['CNC-102','CNC',0,41],['CNC-103','CNC',0,78],['Pump-110','Pump',0,85],['Comp-115','Compressor',0,63],
+ ['Press-201','Press',1,55],['Press-202','Press',1,88],['Furn-210','Furnace',1,34],['Conv-220','Conveyor',1,81],['Pump-230','Pump',1,72],
+ ['Robot-301','Robot',2,95],['Robot-302','Robot',2,67],['Robot-303','Robot',2,90],['Conv-320','Conveyor',2,48],['Comp-330','Compressor',2,83]];
+const fleet=spec.map(([id,type,line,h],k)=>({id,type,line,base:h,health:h,fault:0,approved:false,
+  age:Math.round(2+rnd()*10),hours:Math.round(8000+rnd()*40000),
+  history:Array.from({length:6+Math.floor(rnd()*5)},()=>({d:Math.floor(rnd()*365),k:rnd()<.5?'pm':rnd()<.6?'rep':'brk'})),
+  drift:0}));
+const risk=m=>clamp(Math.round(100/(1+Math.exp((m.health-48)/9))),1,99);
+const rulDays=m=>Math.max(1,Math.round((m.health-20)/ (0.9+(100-m.health)/60)));
+let sel=fleet[1];
+
+/* ===== KPIs ===== */
+function kpis(){
+  const avg=fleet.reduce((a,m)=>a+m.health,0)/fleet.length;
+  const atRisk=fleet.filter(m=>risk(m)>=40&&!m.approved).length;
+  const appr=fleet.filter(m=>m.approved).length;
+  const avoided=fleet.filter(m=>m.approved).reduce((a,m)=>a+risk(m)*.6,0)+42;
+  const save=avoided*12000*0.82;
+  const data=[
+   {l:'Fleet health',v:avg.toFixed(0),u:'/100',d:'▲ 3.1 vs last week',c:hcol(avg),w:avg},
+   {l:'Machines at risk',v:atRisk,u:'',d:atRisk>3?'needs attention':'under control',c:atRisk>3?C.coral:C.lime,w:atRisk/fleet.length*100},
+   {l:'Work orders approved',v:appr,u:'',d:'this cycle',c:C.violet,w:appr/fleet.length*100},
+   {l:'Downtime avoided',v:avoided.toFixed(0),u:' h',d:'predicted, next 90 days',c:C.teal,w:Math.min(100,avoided/1.2)},
+   {l:'Projected savings',v:money(save),u:'',d:'vs run-to-failure',c:C.amber,w:Math.min(100,save/12e3)}];
+  $('#kpis').innerHTML=data.map(k=>`<div class="kpi"><div class="l">${k.l}</div><div class="v">${k.v}<small style="font-size:14px;color:var(--muted)">${k.u}</small></div><div class="d" style="color:${k.c}">${k.d}</div><div class="bar" style="background:${k.c};width:${k.w}%"></div></div>`).join('');
+}
+
+/* ===== Floor map ===== */
+let floorMode='health';
+function drawFloor(){
+  const s=$('#floor');s.innerHTML='';
+  LINES.forEach((ln,i)=>{
+    const y=18+i*128;
+    el('rect',{x:8,y,width:624,height:116,rx:14,fill:floorMode==='line'?LC[i]+'14':'#faf6ee',stroke:C.line,'stroke-dasharray':'4 4'},s);
+    el('text',{x:20,y:y+18,'font-size':11,fill:C.muted,'font-family':'IBM Plex Mono'},s).textContent=ln.toUpperCase();
+    el('line',{x1:30,y1:y+78,x2:610,y2:y+78,stroke:'#d9cfba','stroke-width':6,'stroke-linecap':'round'},s);
+    const flow=el('line',{x1:30,y1:y+78,x2:610,y2:y+78,stroke:'#fff','stroke-width':2,'stroke-dasharray':'6 14'},s);
+    el('animate',{attributeName:'stroke-dashoffset',from:40,to:0,dur:'1.2s',repeatCount:'indefinite'},flow);
+  });
+  fleet.forEach(m=>{
+    const idx=fleet.filter(f=>f.line===m.line).indexOf(m);
+    const x=40+idx*118, y=40+m.line*128;
+    const col=floorMode==='health'?hcol(m.health):floorMode==='risk'?`hsl(${120-risk(m)*1.2},75%,48%)`:LC[m.line];
+    const g=el('g',{class:'mach',transform:`translate(${x},${y})`},s);
+    if(m===sel) el('rect',{x:-5,y:-5,width:110,height:82,rx:16,fill:'none',stroke:C.ink,'stroke-width':2.5},g);
+    el('rect',{x:0,y:0,width:100,height:72,rx:12,fill:'#fff',stroke:col,'stroke-width':2},g);
+    el('rect',{x:0,y:0,width:100,height:22,rx:12,fill:col},g);
+    el('rect',{x:0,y:12,width:100,height:10,fill:col},g);
+    el('text',{x:8,y:15,'font-size':11,'font-weight':600,fill:'#fff','font-family':'IBM Plex Mono'},g).textContent=m.id;
+    el('text',{x:10,y:52,'font-size':20},g).textContent=TYPES[m.type].i;
+    const val=floorMode==='risk'?risk(m)+'%':Math.round(m.health);
+    el('text',{x:90,y:50,'font-size':20,'font-weight':700,'text-anchor':'end',fill:C.ink,'font-family':'IBM Plex Mono'},g).textContent=val;
+    el('text',{x:90,y:64,'font-size':9,'text-anchor':'end',fill:C.muted},g).textContent=floorMode==='risk'?'fail risk':'health';
+    if(m.health<50&&!m.approved){const c=el('circle',{cx:96,cy:4,r:6,fill:C.crit||'#ff4d4f',stroke:'#fff','stroke-width':2},g);el('animate',{attributeName:'r',values:'5;8;5',dur:'1s',repeatCount:'indefinite'},c)}
+    if(m.approved) el('text',{x:80,y:15,'font-size':11,fill:'#fff'},g).textContent='✓';
+    g.onclick=()=>select(m);
+  });
+  const lg=floorMode==='health'?[['Healthy ≥75',C.lime],['Watch 50–74',C.amber],['Critical <50','#ff4d4f']]:floorMode==='risk'?[['Low risk','hsl(110,75%,48%)'],['Medium','hsl(60,75%,48%)'],['High','hsl(5,75%,48%)']]:LINES.map((l,i)=>[l,LC[i]]);
+  $('#floorLegend').innerHTML=lg.map(([t,c])=>`<span style="--c:${c}">${t}</span>`).join('');
+}
+$$('#floorMode button').forEach(b=>b.onclick=()=>{$$('#floorMode button').forEach(x=>x.classList.remove('on'));b.classList.add('on');floorMode=b.dataset.m;drawFloor()});
+
+/* ===== Sensors (live) ===== */
+const SENS=[{k:'vib',n:'Vibration',u:'mm/s',lim:7,c:C.violet,b:2.2},{k:'tmp',n:'Bearing temp',u:'°C',lim:85,c:C.coral,b:58},{k:'cur',n:'Motor current',u:'A',lim:42,c:C.sky,b:30},{k:'prs',n:'Hydraulic pressure',u:'bar',lim:180,c:C.teal,b:140}];
+let streams={};
+function sensVal(s,m,t){
+  const stress=(100-m.health)/100;
+  const noise=(Math.sin(t*.7+s.b)+Math.sin(t*1.9)*.5+(rnd()-.5)*1.2);
+  const scale={vib:.35,tmp:2,cur:1.1,prs:4}[s.k];
+  const lift={vib:6,tmp:32,cur:14,prs:45}[s.k];
+  return s.b+noise*scale+stress*lift*(s.k==='prs'?.8:1);
+}
+function initSensors(){
+  $('#sensors').innerHTML=SENS.map(s=>`<div class="sens"><div class="t"><span>${s.n}</span><b id="v_${s.k}">-</b></div><svg viewBox="0 0 200 58" preserveAspectRatio="none" id="sv_${s.k}"></svg></div>`).join('');
+  streams={};SENS.forEach(s=>{streams[s.k]=Array.from({length:60},(_,i)=>sensVal(s,sel,i*.3))});
+}
+let tick=0;
+function stepSensors(){
+  tick++;
+  if(sel.fault>0){sel.health=Math.max(12,sel.health-0.6);sel.fault--; if(tick%3===0){drawFloor();kpis();drawDetailHead();drawRul()}}
+  SENS.forEach(s=>{
+    const arr=streams[s.k];arr.shift();arr.push(sensVal(s,sel,tick*.3));
+    const svg=$('#sv_'+s.k);if(!svg)return;svg.innerHTML='';
+    const lo=s.b*.6, hi=s.lim*1.25;
+    const Y=v=>58-(v-lo)/(hi-lo)*54;
+    el('rect',{x:0,y:0,width:200,height:Y(s.lim),fill:'#ff4d4f',opacity:.07},svg);
+    el('line',{x1:0,x2:200,y1:Y(s.lim),y2:Y(s.lim),stroke:'#ff4d4f','stroke-dasharray':'3 3','stroke-width':1,'vector-effect':'non-scaling-stroke'},svg);
+    const pts=arr.map((v,i)=>`${i/(arr.length-1)*200},${Y(v)}`).join(' ');
+    el('polygon',{points:`0,58 ${pts} 200,58`,fill:s.c,opacity:.12},svg);
+    el('polyline',{points:pts,fill:'none',stroke:s.c,'stroke-width':2,'vector-effect':'non-scaling-stroke'},svg);
+    const last=arr[arr.length-1];
+    const v=$('#v_'+s.k);v.textContent=last.toFixed(s.k==='vib'?1:0)+' '+s.u;v.style.color=last>s.lim?'#ff4d4f':C.ink;
+  });
+}
+setInterval(stepSensors,350);
+
+function drawDetailHead(){
+  const m=sel,t=TYPES[m.type];
+  $('#mBadge').textContent=t.i;$('#mBadge').style.background=hcol(m.health);
+  $('#mName').textContent=`${m.id} · ${m.type}`;
+  $('#mChips').innerHTML=`<span class="chip">${LINES[m.line]}</span><span class="chip">${m.age} yrs</span><span class="chip">${m.hours.toLocaleString()} run-h</span>`;
+  $('#mScore').textContent=Math.round(m.health);$('#mScore').style.color=hcol(m.health);
+  const r=risk(m),d=rulDays(m),a=$('#mAlert');
+  if(m.approved){a.style.background='#eaf7ef';a.innerHTML=`✅ <div><b>Work order booked.</b> Service is scheduled, so the risk is being handled.</div>`}
+  else if(m.health<50){a.style.background='#ffecea';a.innerHTML=`🚨 <div><b>${r}% chance of failure in 30 days.</b> Vibration pattern matches the early-stage <b>bearing wear</b> seen before 23 past breakdowns. Estimated ${d} days of useful life left.</div>`}
+  else if(m.health<75){a.style.background='#fff5e0';a.innerHTML=`⚠️ <div><b>Watch list:</b> ${r}% 30-day risk. Temperature is drifting upward. Plan preventive service within ~${d} days.</div>`}
+  else{a.style.background='#eaf7ef';a.innerHTML=`🟢 <div><b>Running normally.</b> Only ${r}% 30-day risk. No action needed. Next check in ${d} days.</div>`}
+}
+function select(m){sel=m;initSensors();drawDetailHead();drawFloor();drawRul();drawDrivers();drawHistory()}
+$('#injectBtn').onclick=()=>{sel.fault=60;sel.approved=false};
+$('#resetBtn').onclick=()=>{sel.fault=0;sel.health=sel.base;select(sel);kpis()};
+
+/* ===== RUL forecast ===== */
+function drawRul(){
+  const s=$('#rul');s.innerHTML='';const m=sel;$('#rulName').textContent=m.id;
+  const W=620,H=260,L=40,R=12,T=12,B=30,pw=W-L-R,ph=H-T-B;
+  const X=d=>L+d/60*pw, Y=h=>T+(1-h/100)*ph;
+  const rate=0.25+(100-m.health)/70;
+  const f=d=>Math.max(0,m.health-rate*d-0.004*d*d*(100-m.health)/30);
+  const svc=+$('#svcDay').value;
+  [[0,30,'#ff4d4f'],[30,50,'#f5a623']].forEach(([a,b,c])=>el('rect',{x:L,y:Y(b),width:pw,height:Y(a)-Y(b),fill:c,opacity:.08},s));
+  el('text',{x:L+6,y:Y(30)+14,'font-size':10,fill:'#ff4d4f','font-family':'IBM Plex Mono'},s).textContent='FAILURE ZONE';
+  for(let h=0;h<=100;h+=25){el('line',{x1:L,x2:W-R,y1:Y(h),y2:Y(h),stroke:C.line},s);el('text',{x:L-6,y:Y(h)+4,'font-size':10,'text-anchor':'end',fill:C.muted},s).textContent=h}
+  for(let d=0;d<=60;d+=10)el('text',{x:X(d),y:H-10,'font-size':10,'text-anchor':'middle',fill:C.muted},s).textContent='d'+d;
+  let up='',lo='',line='',after='';
+  for(let d=0;d<=60;d++){const v=f(d),u=d*0.25+d*d*.004;up+=`${X(d)},${Y(Math.min(100,v+u))} `;lo=`${X(d)},${Y(Math.max(0,v-u))} `+lo;line+=`${X(d)},${Y(v)} `}
+  el('polygon',{points:up+lo,fill:C.violet,opacity:.14},s);
+  const pl=el('polyline',{points:line,fill:'none',stroke:C.violet,'stroke-width':2.5,'stroke-dasharray':'5 4'},s);
+  // after service path
+  for(let d=svc;d<=60;d++){const v=Math.min(97,m.base+5)-0.15*(d-svc);after+=`${X(d)},${Y(v)} `}
+  el('polyline',{points:`${X(svc)},${Y(f(svc))} `+after,fill:'none',stroke:C.lime,'stroke-width':3},s);
+  el('line',{x1:X(svc),x2:X(svc),y1:T,y2:T+ph,stroke:C.ink,'stroke-width':1.5,'stroke-dasharray':'2 3'},s);
+  el('text',{x:X(svc)+5,y:T+12,'font-size':11,'font-weight':600,fill:C.ink},s).textContent='🛠 service';
+  const failD=[...Array(61).keys()].find(d=>f(d)<30);
+  if(failD!==undefined){el('circle',{cx:X(failD),cy:Y(30),r:6,fill:'#ff4d4f',stroke:'#fff','stroke-width':2},s);el('text',{x:X(failD),y:Y(30)-10,'font-size':10,'text-anchor':'middle',fill:'#ff4d4f','font-weight':600},s).textContent='likely failure d'+failD}
+  const hl=el('line',{y1:T,y2:T+ph,stroke:C.muted,opacity:0},s), hd=el('circle',{r:5,fill:C.violet,opacity:0},s);
+  const ov=el('rect',{x:L,y:T,width:pw,height:ph,fill:'transparent'},s);
+  const tip=$('#rulTip');
+  ov.onmousemove=e=>{const r=s.getBoundingClientRect(),sx=(e.clientX-r.left)/r.width*W;const d=clamp(Math.round((sx-L)/pw*60),0,60);
+    hl.setAttribute('x1',X(d));hl.setAttribute('x2',X(d));hl.setAttribute('opacity',1);hd.setAttribute('cx',X(d));hd.setAttribute('cy',Y(f(d)));hd.setAttribute('opacity',1);
+    const v=f(d);tip.innerHTML=`Day ${d}<br>Health ${v.toFixed(0)} ±${(d*.25+d*d*.004).toFixed(0)}<br>Risk ${clamp(Math.round(100/(1+Math.exp((v-48)/9))),1,99)}%`;
+    tip.style.opacity=1;tip.style.left=(X(d)/W*r.width+12)+'px';tip.style.top=(Y(v)/H*r.height-20)+'px'};
+  ov.onmouseleave=()=>{tip.style.opacity=0;hl.setAttribute('opacity',0);hd.setAttribute('opacity',0)};
+  // verdict
+  const late=failD!==undefined&&svc>failD;
+  const riskAt=clamp(Math.round(100/(1+Math.exp((f(svc)-48)/9))),1,99);
+  const early=failD!==undefined?Math.max(0,failD-svc):60-svc;
+  $('#svcDayL').textContent='day '+svc;
+  $('#rulVerdict').innerHTML=`
+   <div class="vbox" style="background:${late?'#ffecea':'#eaf7ef'}"><div class="l">Outcome</div><div class="v" style="color:${late?'#ff4d4f':C.lime}">${late?'Too late ✖':'Caught it ✓'}</div></div>
+   <div class="vbox"><div class="l">Risk on service day</div><div class="v">${riskAt}%</div></div>
+   <div class="vbox"><div class="l">${late?'Breakdown cost':'Life left unused'}</div><div class="v">${late?money(48000+risk(m)*900):early+' days'}</div></div>`;
+}
+$('#svcDay').oninput=drawRul;
+
+/* ===== Drivers ===== */
+function drawDrivers(){
+  const s=$('#drivers');s.innerHTML='';const m=sel,st=(100-m.health)/100;
+  let seed2=m.id.length*7+m.line;const r2=()=>{seed2=(seed2*9301+49297)%233280;return seed2/233280};
+  const d=[['Vibration RMS trend',.9],['Bearing temperature',.75],['Hours since last service',.6],['Motor current spikes',.5],['Load on production shift',.35],['Machine age',.25]]
+    .map(([n,w])=>({n,v:Math.round((w*st*100+r2()*14)*(m.type==='Furnace'&&n.includes('Vib')?.4:1))})).sort((a,b)=>b.v-a.v);
+  const max=Math.max(...d.map(x=>x.v),10);
+  d.forEach((x,i)=>{const y=8+i*36;
+    el('text',{x:0,y:y+16,'font-size':12.5,fill:C.ink},s).textContent=x.n;
+    el('rect',{x:190,y:y+3,width:300,height:20,rx:6,fill:'#f2ece0'},s);
+    const b=el('rect',{x:190,y:y+3,width:0,height:20,rx:6,fill:[C.coral,C.amber,C.violet,C.sky,C.teal,C.lime][i]},s);
+    b.style.transition='width .7s';requestAnimationFrame(()=>b.setAttribute('width',x.v/max*300));
+    el('text',{x:198,y:y+17,'font-size':11,fill:'#fff','font-weight':600,'font-family':'IBM Plex Mono'},s).textContent='+'+x.v+'%';
+  });
+}
+function drawHistory(){
+  const s=$('#history');s.innerHTML='';
+  el('line',{x1:10,x2:510,y1:35,y2:35,stroke:C.line,'stroke-width':3},s);
+  ['Jan','Apr','Jul','Oct'].forEach((t,i)=>el('text',{x:10+i*125,y:64,'font-size':10,fill:C.muted},s).textContent=t);
+  sel.history.forEach(h=>{const x=10+h.d/365*500;
+    const col=h.k==='brk'?'#ff4d4f':h.k==='pm'?C.teal:C.amber;
+    const t=el('text',{x,y:41,'font-size':h.k==='brk'?16:14,'text-anchor':'middle',fill:col,style:'cursor:default'},s);t.textContent=h.k==='brk'?'✖':h.k==='pm'?'◆':'●';
+    el('title',{},t).textContent=(h.k==='brk'?'Breakdown':h.k==='pm'?'Preventive service':'Repair')+' · day '+h.d;
+  });
+}
+
+/* ===== Gantt ===== */
+const DAYS=14, SH=3;
+const prod=Array.from({length:DAYS*SH},(_,i)=>{const d=Math.floor(i/SH),sh=i%SH;const we=(d%7)>=5;return Math.round((we?25:80)+(sh===2?-40:0)+rnd()*25)});
+let jobs=[];
+function buildJobs(naive){
+  jobs=fleet.filter(m=>m.health<80).sort((a,b)=>a.health-b.health).slice(0,8).map((m,i)=>({m,dur:2+(m.health<50?2:1)%3,start:naive?Math.floor(rnd()*30):i*4,deadline:Math.min(DAYS*SH-3,Math.round(rulDays(m)*SH*0.5))}));
+}
+function lost(){return jobs.reduce((a,j)=>{let s=0;for(let k=0;k<j.dur;k++)s+=prod[j.start+k]||0;return a+s*12},0)}
+function optimise(){
+  const used=new Set();
+  [...jobs].sort((a,b)=>a.deadline-b.deadline).forEach(j=>{
+    let best=0,bc=1e9;for(let st=0;st<=Math.min(j.deadline,DAYS*SH-j.dur);st++){let c=0,clash=false;for(let k=0;k<j.dur;k++){c+=prod[st+k];if(used.has((st+k)+'_'+j.m.line))clash=true}if(!clash&&c<bc){bc=c;best=st}}
+    animateTo(j,best);for(let k=0;k<j.dur;k++)used.add((best+k)+'_'+j.m.line);
+  });
+}
+function animateTo(j,to){const from=j.start,t0=performance.now();(function f(t){const p=Math.min(1,(t-t0)/700),e=1-Math.pow(1-p,3);j.start=from+(to-from)*e;drawGantt();if(p<1)requestAnimationFrame(f);else{j.start=to;drawGantt()}})(t0)}
+function drawGantt(){
+  const s=$('#gantt');s.innerHTML='';const W=1200,L=110,cw=(W-L-10)/(DAYS*SH),top=40;
+  for(let d=0;d<DAYS;d++){const x=L+d*SH*cw;const we=(d%7)>=5;
+    el('rect',{x,y:20,width:SH*cw,height:340,fill:we?'#f3eefe':d%2?'#fbf8f1':'#fff'},s);
+    el('text',{x:x+SH*cw/2,y:14,'font-size':11,'text-anchor':'middle',fill:we?C.violet:C.muted,'font-weight':600},s).textContent=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d%7]+' '+(d+1)}
+  el('text',{x:8,y:top+28,'font-size':11,fill:C.muted,'font-weight':600},s).textContent='PRODUCTION';
+  prod.forEach((p,i)=>{const h=p/110*50;el('rect',{x:L+i*cw+1,y:top+55-h,width:cw-2,height:h,rx:2,fill:p>70?'#b8b0a0':p>40?'#d3cbbb':'#e8e2d4'},s)});
+  const rowH=30;
+  jobs.forEach((j,r)=>{
+    const y=top+70+r*rowH;
+    el('text',{x:8,y:y+19,'font-size':12,fill:C.ink,'font-family':'IBM Plex Mono','font-weight':500},s).textContent=j.m.id;
+    el('line',{x1:L,x2:W-10,y1:y+rowH-1,y2:y+rowH-1,stroke:C.line},s);
+    const dx=L+(j.deadline+j.dur)*cw;
+    el('line',{x1:dx,x2:dx,y1:y+2,y2:y+rowH-4,stroke:'#ff4d4f','stroke-width':2,'stroke-dasharray':'3 2'},s);
+    el('text',{x:dx+3,y:y+12,'font-size':9,fill:'#ff4d4f'},s).textContent='risk deadline';
+    let cost=0;for(let k=0;k<j.dur;k++)cost+=prod[Math.round(j.start)+k]||0;
+    const g=el('g',{class:'blk'},s);
+    const late=j.start>j.deadline;
+    el('rect',{x:L+j.start*cw+1,y:y+4,width:j.dur*cw-2,height:rowH-10,rx:7,fill:late?'#ff4d4f':LC[j.m.line],opacity:.92},g);
+    el('text',{x:L+j.start*cw+8,y:y+19,'font-size':10.5,fill:'#fff','font-weight':600},g).textContent=(late?'⚠ late · ':'')+(cost<120?'quiet slot':'-'+cost*12+' units');
+    let dragX=null,st0;
+    g.onpointerdown=e=>{dragX=e.clientX;st0=j.start;g.setPointerCapture(e.pointerId)};
+    g.onpointermove=e=>{if(dragX===null)return;const r=s.getBoundingClientRect();const dc=(e.clientX-dragX)/r.width*W/cw;j.start=clamp(Math.round(st0+dc),0,DAYS*SH-j.dur);drawGanttLite()};
+    g.onpointerup=()=>{dragX=null;drawGantt()};
+  });
+  $('#lostOut').textContent=lost().toLocaleString();
+}
+let raf=0;function drawGanttLite(){cancelAnimationFrame(raf);raf=requestAnimationFrame(drawGantt)}
+$('#optBtn').onclick=optimise;
+$('#shuffleBtn').onclick=()=>{jobs.forEach(j=>animateTo(j,Math.floor(rnd()*(DAYS*SH-j.dur))))};
+
+/* ===== Heatmap ===== */
+const MODES=[{n:'Bearing wear',c:C.violet,on:true,peak:[[1,6],[2,7]]},{n:'Overheating',c:C.coral,on:true,peak:[[3,14],[4,15]]},{n:'Hydraulic leak',c:C.teal,on:true,peak:[[0,22],[0,23]]},{n:'Electrical fault',c:C.amber,on:true,peak:[[4,18]]}];
+const heat=MODES.map(md=>Array.from({length:7},(_,d)=>Array.from({length:24},(_,h)=>{let v=rnd()*1.5;md.peak.forEach(([pd,ph])=>{v+=7*Math.exp(-((d-pd)**2)/1.2-((h-ph)**2)/6)});if(d>=5)v*=.5;return Math.round(v)})));
+function drawHeat(){
+  const s=$('#heat');s.innerHTML='';const L=40,T=16,cw=(760-L-6)/24,chh=36;
+  const tot=Array.from({length:7},(_,d)=>Array.from({length:24},(_,h)=>MODES.reduce((a,md,i)=>a+(md.on?heat[i][d][h]:0),0)));
+  const max=Math.max(1,...tot.flat());
+  const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const tip=$('#heatTip');
+  for(let d=0;d<7;d++){el('text',{x:L-8,y:T+d*chh+chh/2+4,'font-size':11,'text-anchor':'end',fill:C.muted},s).textContent=days[d];
+    for(let h=0;h<24;h++){
+      const v=tot[d][h]/max;
+      let dom=0,dv=-1;MODES.forEach((md,i)=>{if(md.on&&heat[i][d][h]>dv){dv=heat[i][d][h];dom=i}});
+      const r=el('rect',{x:L+h*cw+1,y:T+d*chh+1,width:cw-2,height:chh-2,rx:5,fill:v<.08?'#f2ece0':MODES[dom].c,opacity:v<.08?1:.18+v*.82,style:'cursor:pointer;transition:opacity .3s'},s);
+      r.onmouseenter=e=>{const br=s.getBoundingClientRect();tip.innerHTML=`${days[d]} ${String(h).padStart(2,'0')}:00<br>${tot[d][h]} failures<br>mostly ${MODES[dom].n}`;tip.style.opacity=1;tip.style.left=((L+h*cw)/760*br.width+20)+'px';tip.style.top=((T+d*chh)/300*br.height-10)+'px'};
+      r.onmouseleave=()=>tip.style.opacity=0;
+      r.onclick=()=>{$('#heatInsight').innerHTML=`<b>${days[d]} · ${h}:00–${h+1}:00</b><br>${MODES.map((md,i)=>`<span style="color:${md.c}">■</span> ${md.n}: ${heat[i][d][h]}`).join('<br>')}<br><i style="color:var(--muted)">${h>=6&&h<=8?'Shift start: cold machines take sudden load.':h>=13&&h<=16?'Afternoon heat and peak output stress cooling.':h>=21?'Night shift, fewer operator checks.':'Normal operating window.'}</i>`};
+    }}
+  [0,6,12,18,23].forEach(h=>el('text',{x:L+h*cw+cw/2,y:T+7*chh+16,'font-size':10,'text-anchor':'middle',fill:C.muted},s).textContent=h+':00');
+}
+function drawModes(){
+  $('#modes').innerHTML=MODES.map((md,i)=>`<div class="mode ${md.on?'':'off'}" data-i="${i}"><i style="background:${md.c}"></i>${md.n}<span>${heat[i].flat().reduce((a,b)=>a+b,0)}</span></div>`).join('');
+  $$('.mode').forEach(x=>x.onclick=()=>{const md=MODES[x.dataset.i];md.on=!md.on;if(!MODES.some(m=>m.on))md.on=true;drawModes();drawHeat()});
+}
+$('#heatInsight').innerHTML='💡 <b>Pattern found:</b> bearing failures cluster at <b>Tue–Wed 6–8 AM</b>, when cold machines take full load. A 20-minute warm-up routine is recommended.';
+
+/* ===== Strategy simulator ===== */
+const PRE={small:[20,3000,60,80],mid:[60,12000,80,88],big:[320,42000,95,94]};
+function sim(){
+  const F=+$('#sFleet').value,D=+$('#sDown').value,Cv=+$('#sCov').value/100,A=+$('#sAcc').value/100;
+  $('#sFleetL').textContent=F;$('#sDownL').textContent=money(D);$('#sCovL').textContent=Math.round(Cv*100)+'%';$('#sAccL').textContent=Math.round(A*100)+'%';
+  const fails=F*2.4, hrs=9;
+  const strat=[
+   {n:'Reactive',sub:'run to failure',c:C.coral,dt:fails*hrs*D,lab:fails*2600,parts:fails*5200},
+   {n:'Preventive',sub:'fixed calendar',c:C.amber,dt:fails*.55*hrs*D*.8,lab:F*12*900,parts:F*12*700},
+   {n:'Predictive',sub:'MachinePulse AI',c:C.teal,dt:fails*(1-Cv*A*.85)*hrs*D*.7,lab:F*4*900+fails*(1-Cv*A)*2600,parts:F*4*800+fails*(1-Cv*A)*5200+F*Cv*450}];
+  strat.forEach(x=>x.tot=x.dt+x.lab+x.parts);
+  const s=$('#simbars');s.innerHTML='';const W=760,H=330,L=70,B=50,T=20,ph=H-T-B;
+  const max=Math.max(...strat.map(x=>x.tot))*1.1;
+  for(let i=0;i<=4;i++){const v=max*i/4,y=T+ph-ph*i/4;el('line',{x1:L,x2:W-10,y1:y,y2:y,stroke:C.line},s);el('text',{x:L-8,y:y+4,'font-size':10,'text-anchor':'end',fill:C.muted},s).textContent=money(v)}
+  const bw=130,gap=(W-L-10-bw*3)/3, tip=$('#simTip');
+  strat.forEach((x,i)=>{const bx=L+gap/2+i*(bw+gap);let y0=T+ph;
+    [['Downtime',x.dt,1],['Labour',x.lab,.7],['Parts',x.parts,.45]].forEach(([n,v,o])=>{const h=v/max*ph;y0-=h;
+      const r=el('rect',{x:bx,y:y0,width:bw,height:Math.max(0,h),fill:x.c,opacity:o,stroke:'#fff','stroke-width':1.5,style:'transition:all .5s;cursor:pointer'},s);
+      r.onmousemove=e=>{const br=s.getBoundingClientRect();tip.innerHTML=`${x.n} · ${n}<br>${money(v)} / yr`;tip.style.opacity=1;tip.style.left=(e.clientX-br.left+14)+'px';tip.style.top=(e.clientY-br.top-10)+'px'};
+      r.onmouseleave=()=>tip.style.opacity=0;
+      if(h>18)el('text',{x:bx+bw/2,y:y0+h/2+4,'font-size':10,'text-anchor':'middle',fill:'#fff','font-weight':600,'pointer-events':'none'},s).textContent=n;});
+    el('text',{x:bx+bw/2,y:y0-8,'font-size':14,'text-anchor':'middle','font-weight':700,fill:C.ink,'font-family':'IBM Plex Mono'},s).textContent=money(x.tot);
+    el('text',{x:bx+bw/2,y:H-28,'font-size':13,'text-anchor':'middle','font-weight':600,fill:x.c},s).textContent=x.n;
+    el('text',{x:bx+bw/2,y:H-12,'font-size':11,'text-anchor':'middle',fill:C.muted},s).textContent=x.sub;
+  });
+  const save=strat[0].tot-strat[2].tot, vsPm=strat[1].tot-strat[2].tot;
+  $('#simVerdict').innerHTML=`🏁 <b>Predictive saves ${money(save)}/yr</b> vs reactive (${Math.round(save/strat[0].tot*100)}%) and <b>${money(vsPm)}</b> vs calendar maintenance.${Cv<.5?' <br>⚠️ Low sensor coverage limits the gains. Add sensors first.':''}`;
+}
+['#sFleet','#sDown','#sCov','#sAcc'].forEach(id=>$(id).oninput=()=>{$$('#presets button').forEach(b=>b.classList.remove('on'));sim()});
+$$('#presets button').forEach(b=>b.onclick=()=>{$$('#presets button').forEach(x=>x.classList.remove('on'));b.classList.add('on');const p=PRE[b.dataset.p];['#sFleet','#sDown','#sCov','#sAcc'].forEach((id,i)=>$(id).value=p[i]);sim()});
+
+/* ===== Action queue ===== */
+const ACT={CNC:'Replace spindle bearing & re-balance',Press:'Inspect hydraulic seals, top up fluid',Furnace:'Replace thermocouple & refractory check',Conveyor:'Re-tension belt, lubricate rollers',Pump:'Swap impeller wear ring',Compressor:'Change air-end oil & filters',Robot:'Recalibrate joint 3 servo'};
+function drawQueue(){
+  const list=fleet.filter(m=>m.health<80).sort((a,b)=>risk(b)*(b.line===1?1.2:1)-risk(a)*(a.line===1?1.2:1));
+  $('#queue').innerHTML=list.map(m=>{const r=risk(m),pc=r>=60?'#ff4d4f':r>=30?C.amber:C.lime;
+    return `<div class="qi ${m.approved?'done':''}"><div class="p" style="background:${pc}"></div>
+    <div><h4>${m.id}: ${ACT[m.type]}</h4><small>${r}% risk · ~${rulDays(m)} days left · ${LINES[m.line]} · est. ${(2+r/25).toFixed(1)} h job · avoids ${money(20000+r*700)} loss</small></div>
+    <button class="btn" data-id="${m.id}">${m.approved?'✓ Booked':'Approve'}</button></div>`}).join('');
+  $$('#queue .btn').forEach(b=>b.onclick=()=>{const m=fleet.find(f=>f.id===b.dataset.id);m.approved=!m.approved;refreshAll()});
+}
+$('#approveAll').onclick=()=>{fleet.forEach(m=>{if(risk(m)>=40)m.approved=true});refreshAll()};
+function refreshAll(){kpis();drawFloor();drawQueue();drawDetailHead()}
+
+/* rail highlighting */
+const secs=['floor-sec','rul-sec','plan-sec','pattern-sec','roi-sec','act-sec'];
+addEventListener('scroll',()=>{let cur=secs[0];secs.forEach(id=>{if(document.getElementById(id).getBoundingClientRect().top<200)cur=id});$$('.rail a').forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#'+cur))});
+
+/* boot */
+buildJobs(true);
+select(sel);kpis();drawGantt();drawModes();drawHeat();sim();drawQueue();
+</script>
+</body>
+</html>
